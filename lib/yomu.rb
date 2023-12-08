@@ -21,8 +21,8 @@ class Yomu
   #   text = Yomu.read :text, data
   #   metadata = Yomu.read :metadata, data
 
-  def self.read(type, data)
-    result = @@server_pid ? self._server_read(type, data) : self._client_read(type, data)
+  def self.read(type, data, path = nil)
+    result = @@server_pid ? _server_read(type, data) : _client_read(type, data, path)
 
     case type
     when :text
@@ -36,7 +36,7 @@ class Yomu
     end
   end
 
-  def self._client_read(type, data)
+  def self._client_read(type, data, path)
     switch = case type
     when :text
       '-t'
@@ -48,10 +48,14 @@ class Yomu
       '-m -j'
     end
 
-    IO.popen "#{java} -Djava.awt.headless=true -jar #{Yomu::JARPATH} #{switch}", 'r+' do |io|
-      io.write data
-      io.close_write
-      io.read
+    if path
+      IO.popen([java, '-Djava.awt.headless=true', '-jar', Yomu::JARPATH, switch, path], 'r').read
+    else
+      IO.popen "#{java} -Djava.awt.headless=true -jar #{Yomu::JARPATH} #{switch}", 'r+' do |io|
+        io.write data
+        io.close_write
+        io.read
+      end
     end
   end
 
@@ -116,7 +120,7 @@ class Yomu
   def text
     return @text if defined? @text
 
-    @text = Yomu.read :text, data
+    @text = path? ? Yomu.read(:text, nil, @path) : Yomu.read(:text, data)
   end
 
   # Returns the text content of the Yomu document in HTML.
@@ -127,7 +131,7 @@ class Yomu
   def html
     return @html if defined? @html
 
-    @html = Yomu.read :html, data
+    @html = path? ? Yomu.read(:html, nil, @path) : Yomu.read(:html, data)
   end
 
   # Returns the metadata hash of the Yomu document.
@@ -138,7 +142,7 @@ class Yomu
   def metadata
     return @metadata if defined? @metadata
 
-    @metadata = Yomu.read :metadata, data
+    @metadata = path? ? Yomu.read(:metadata, nil, @path) : Yomu.read(:metadata, data)
   end
 
   # Returns the mimetype object of the Yomu document.
